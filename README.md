@@ -157,3 +157,35 @@ verb 3
 topology subnet
 
 ```
+
+Debemos copiar las claves y certificados previamente generados al directorio donde se encuentra la configuración:
+```bash
+sudo cp ~/openvpn-ca/pki/ca.crt ~/openvpn-ca/pki/private/server.key ~/openvpn-ca/pki/issued/server.crt ~/openvpn-ca/pki/dh.pem ~/openvpn-ca/ta.key /etc/openvpn/
+```
+
+Es necesario habilitar el reenvío de IP para permitir que los paquetes de datos se envíen desde una interfaz de red a otra. Para esto, se debe editar el archivo `/etc/sysctl.conf` y descomentar la línea:
+```bash
+net.ipv4.ip_forward=1
+```
+Luego, se deben aplicar los cambios:
+```bash
+sudo sysctl -p
+```
+Adicionalmente, se debe hacer NAT de los paquetes que lleguen del túnel para que los clientes puedan llegar a  internet:
+```bash
+sudo iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE
+```
+Es posible que se deba cambiar la interfaz, consultar con `ifconfig`
+
+Esta configuración no persiste y se debe realizar con cada reinicio, para evitar esto se pueden guardar las reglas actuales de IP tables para que puedan restaurarse:
+```bash
+sudo iptables-save | sudo tee /etc/iptables.rules
+```
+Además, se debe modificar el archivo `/etc/rc.local` para restaurar las reglas al iniciar el sistema. Bastará con agregar la linea:
+```bash
+iptables-restore < /etc/iptables.rules
+```
+Finalmente se inicia el servicio de OpenVPN:
+```bash
+sudo systemctl start openvpn@server
+```
