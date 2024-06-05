@@ -12,7 +12,7 @@ Todas las implementaciones se realizaron en el entorno de AWS provisto por la c√
 ## Crear VPC
 ## Crear instancia EC2
 
-#Cliente a sitio
+# Cliente a sitio
 ## Instalaci√≥n de Servidor OpenVPN
 Se deben instalar todo lo necesario:
 ```bash
