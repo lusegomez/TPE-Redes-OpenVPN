@@ -12,6 +12,7 @@ Todas las implementaciones se realizaron en el entorno de AWS provisto por la c�
 ## Crear VPC
 ## Crear instancia EC2
 
+#Cliente a sitio
 ## Instalación de Servidor OpenVPN
 Se deben instalar todo lo necesario:
 ```bash
@@ -188,4 +189,52 @@ iptables-restore < /etc/iptables.rules
 Finalmente se inicia el servicio de OpenVPN:
 ```bash
 sudo systemctl start openvpn@server
+```
+
+## Instalación de Cliente OpenVPN
+Para la configuración del cliente se debe instalar OpenVPN, tal como se realizó con el servidor. Además, se deben copiar las claves generadas en el servidor (`ca.crt`, `client1.crt`, `client1.key`, `ta.key`) al cliente. Podemos compartir dichos archivos utilizando SCP:
+```bash
+scp /ruta/del/archivo usuario_remoto@host_remoto:/ruta/destino/
+```
+Análogamente, copiaremos el template de configuración del cliente al directorio `/etc/openvpn`:
+```bash
+sudo cp /usr/share/doc/openvpn/examples/sample-config-files/client.conf /etc/openvpn/
+```
+Procedemos a editar la configuración
+```bash
+# Indica que actua como cliente
+client
+
+dev tun
+proto tcp
+
+#Conexion al servidor
+remote 3.230.53.184 1194
+
+# Reintentar infinitamente la resolución de nombres de host
+resolv-retry infinite
+# El cliente no debe intentar vincularse a una dirección IP o puerto específico
+nobind
+
+persist-key
+persist-tun
+
+ca "/etc/openvpn/ca.crt"
+cert "/etc/openvpn/remote-server.crt"
+key "/etc/openvpn/remote-server.key"
+
+# Indica que el cliente debe verificar el certificado del servidor
+remote-cert-tls server
+
+tls-auth "/etc/openvpn/ta.key" 1
+key-direction 1
+cipher AES-256-CBC
+
+verb 3
+auth SHA256
+
+```
+Finalmente, se debe iniciar el servicio:
+```bash
+sudo systemctl start openvpn@client
 ```
