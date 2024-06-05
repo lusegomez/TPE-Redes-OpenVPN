@@ -79,3 +79,81 @@ pki/dh.pem: Parámetros Diffie-Hellman.
 pki/private/client1.key: Clave privada de client1.
 pki/issued/client1.crt: Certificado de client1.
 ```
+
+```bash
+ta.key: Clave secreta para TLS Auth.
+```
+
+### Configuración del servidor
+Para el archivo de configuración del servidor (server.conf) se puede partir de un ejemplo que ofrece openVPN. Para eso, lo copiamos a nuestro directorio de configuración:
+```bash
+sudo cp /usr/share/doc/openvpn/examples/sample-config-files/server.conf /etc/openvpn/
+```
+Luego, se procede a editar el archivo de configuración
+```bash
+# Puerto en el que el servidor escuchará las conexiones de los clientes
+port 1194
+# Protocolo que se utilizará para la conexión
+proto tcp
+# dispositivo de red utilizado para túneles IP
+dev tun
+
+# Rutas a certificados y claves
+ca /etc/openvpn/ca.crt
+cert /etc/openvpn/server.crt
+key /etc/openvpn/server.key
+dh /etc/openvpn/dh.pem
+
+# Define la red virtual
+server 10.8.0.0 255.255.255.0
+
+# Directorio al archivo en el que se guardará la asignación de direcciones IP a los clientes conectados
+ifconfig-pool-persist /etc/openvpn/ipp.txt
+
+# Pushea configuraciones a los clientes, en este caso la configuración del servidor DNS
+push "dhcp-option DNS 8.8.8.8"
+push "dhcp-option DNS 8.8.4.4"
+
+# Define la red propia del servidor para los clientes
+push "route 10.0.0.0 255.255.240.0"
+
+# Indica que el trafico destinado a esta red viajara a traves de la VPN
+route 192.168.0.0 255.255.240.0
+
+# Indica el directorio donde se encuentran los archivos de configuración  de cada cliente
+client-config-dir ccd
+
+# Frecuencia de los paquetes de "keepalive"
+keepalive 10 120
+
+# Algoritmo de cifrado
+cipher AES-256-CBC
+
+# Algoritmo de autenticación
+auth SHA256
+
+# Habilita la autenticación de TLS
+tls-auth /etc/openvpn/ta.key 0
+
+Especifica la dirección de la clave. En este caso, la dirección de la clave es 0, lo que indica que la clave se utiliza tanto para la autenticación del servidor como para la autenticación del cliente
+key-direction 0
+
+# Usuario y grupo utilizados para limitar privilegios del servidor
+user nobody
+group nogroup
+
+# Indica que OpenVPN debe intentar mantener abiertos el archivo de clave y el túnel persistente
+persist-key
+persist-tun
+
+# Archivos de log
+status /var/log/openvpn-status.log
+log-append /var/log/openvpn.log
+
+# Nivel de loggeo
+verb 3
+
+# Indica la topología de la red utilizada
+topology subnet
+
+```
