@@ -178,14 +178,8 @@ sudo iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE
 ```
 Es posible que se deba cambiar la interfaz, consultar con `ifconfig`
 
-Esta configuración no persiste y se debe realizar con cada reinicio, para evitar esto se pueden guardar las reglas actuales de IP tables para que puedan restaurarse:
-```bash
-sudo iptables-save | sudo tee /etc/iptables.rules
-```
-Además, se debe modificar el archivo `/etc/rc.local` para restaurar las reglas al iniciar el sistema. Bastará con agregar la linea:
-```bash
-iptables-restore < /etc/iptables.rules
-```
+Esta configuración no persiste y se debe realizar con cada reinicio
+
 Finalmente se inicia el servicio de OpenVPN:
 ```bash
 sudo systemctl start openvpn@server
