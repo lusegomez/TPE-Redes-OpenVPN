@@ -9,9 +9,6 @@ Las arquitecturas propuestas son:
 
 Todas las implementaciones se realizaron en el entorno de AWS provisto por la cátedra.
 
-## Crear VPC
-## Crear instancia EC2
-
 # Cliente a sitio
 ## Instalación de Servidor OpenVPN
 Se deben instalar todo lo necesario:
@@ -117,12 +114,6 @@ push "dhcp-option DNS 8.8.4.4"
 
 # Define la red propia del servidor para los clientes
 push "route 10.0.0.0 255.255.240.0"
-
-# Indica que el trafico destinado a esta red viajara a traves de la VPN
-route 192.168.0.0 255.255.240.0
-
-# Indica el directorio donde se encuentran los archivos de configuración  de cada cliente
-client-config-dir ccd
 
 # Frecuencia de los paquetes de "keepalive"
 keepalive 10 120
@@ -232,3 +223,44 @@ Finalmente, se debe iniciar el servicio:
 ```bash
 sudo systemctl start openvpn@client
 ```
+
+# Sitio a sitio
+Para la nueva arquitectura, se poseen dos redes distintas que no poseen conexión entre sí, el servidor se encuentra en la red 10.0.0.0/20 y el servidor remoto (un cliente openVPN) se encuentra en la red 192.168.0.0/20.
+En este caso, tanto el servidor como el cliente deberán reenviar el tráfico proveniente del túnel VPN a los demás hosts de la red. Para esto, se deben definir reglas de enrutamiento en el cliente, en el servidor y en el default gateway de ambas redes.
+
+## Cambios al servidor
+Para que la conexión sitio a sitio funcione correctamente, se debe modificar el archivo de configuración (`server.conf`). Inicialmente. se debe indicar que los paquetes con destino a la red del cliente, se envían por el túnel VPN:
+```bash
+route 192.168.0.0 255.255.240.0
+```
+Además, se debe indicar el directorio de configuración de clientes
+```bash
+client-config-dir ccd
+```
+Luego, creamos dicho directorio `ccd` y agregamos un archivo con el common name que le dimos a nuestro cliente, en el agregaremos la siguiente configuración:
+```bash
+iroute 192.168.0.0 255.255.240.0
+```
+Con esta  instrucción, le indicamos al servidor que los paquetes destinados a esa subred deben ser enviados a través del túnel VPN
+
+## Cambios al cliente
+Nuestro cliente ahora actuará como un servidor remoto, por lo que en primer lugar habilitaremos el forwardeo de paquetes como se hizo con el servidor en la explicación de la sección anterior:
+* Agregar la linea `net.ipv4.ip_forward=1` al archivo `/etc/sysctl.conf` y aplicar los cambios con:
+```bash
+sudo sysctl -p
+```
+* Se debe hacer NAT de los paquetes que lleguen del túnel:
+```bash
+sudo iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE
+```
+Recordar cambiar de interfaz en caso de ser necesario, consultar con `ifconfig`
+
+## Cambios en las tablas de ruteo
+Se deben agregar en ambos routers las reglas de ruteo para que los paquetes lleguen correctamente.  
+Se debe agregar una regla para los paquetes de la red remota y otra para los paquetes con destino a la red VPN, ambos deben viajar a través del túnel VPN. Para esto, se debe setear como gateway el servidor de cada red.
+
+# Multisitio
+Una vez teniendo configurada la conexión sitio a sitio, agregar un nuevo sitio no requiere mayor complejidad. 
+A la configuración de nuestro servidor principal se le debe agregar la línea `client-to-client` para permitir la comunicación entre clientes.
+Se debe crear un nuevo archivo de configuración en el directorio ccd (análogamente a como se hizo en la configuración anterior), con el common name del nuevo sitio. Además, a todos los archivos de configuración del directorio ccd se deben agregar la instrucción `push "route 172.16.0.0 255.255.240.0"` con la dirección de los otros sitios remotos. Es decir, el archivo de configuración del servidor de la red 192.168.0.0/20 tendra la linea `push "route 172.16.0.0 255.255.240.0"` y el servidor de la red 172.16.0.0/20 tendra la instruccion "route 192.168.0.0 255.255.240.0"`.
+Por último, a las tablas de ruteo de los routers de los sitios se le debe agregar el enrutamiento a través del túnel para los paquetes que tengan como destino la nueva red y viceversa.
